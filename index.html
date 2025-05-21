@@ -1,0 +1,156 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dice Hack Firebase</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            databaseURL: "https://baru1234-67129-default-rtdb.firebaseio.com/"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const dbRef = firebase.database().ref('baucua/');
+
+        // Connection status and real-time monitoring
+        function setupFirebaseConnection() {
+            // Monitor connection state
+            const connectedRef = firebase.database().ref('.info/connected');
+            connectedRef.on('value', function(snapshot) {
+                const connected = snapshot.val();
+                updateConnectionStatus(connected);
+            });
+
+            // Listen for real-time updates
+            dbRef.on('value', function(snapshot) {
+                const data = snapshot.val();
+                if (data && data.results) {
+                    console.log('Received data:', data.results);
+                    displayReceivedData(data.results);
+                }
+            });
+        }
+
+        // Update connection status display
+        function updateConnectionStatus(isConnected) {
+            const statusBox = document.getElementById('connectionStatus');
+            if (isConnected) {
+                statusBox.innerHTML = `
+                    <span class="text-green-500 font-bold">
+                        <i class="animate-pulse">🟢 Remot Terhubung</i>
+                    </span>
+                `;
+            } else {
+                statusBox.innerHTML = `
+                    <span class="text-red-500 font-bold">
+                        🔴 Terputus
+                    </span>
+                `;
+            }
+        }
+
+        // Display received data
+        function displayReceivedData(data) {
+            const receivedDataBox = document.getElementById('receivedData');
+            receivedDataBox.textContent = `Data Diterima: ${data}`;
+            receivedDataBox.classList.add('bg-green-100', 'p-2', 'rounded', 'mt-2');
+        }
+
+        // On document ready
+        $(document).ready(function() {
+            // Initialize Firebase connection
+            setupFirebaseConnection();
+
+            // Number input handling
+            $('.number-btn').click(function() {
+                const number = $(this).data('number');
+                const currentInput = $('#data');
+                currentInput.val(currentInput.val() + number);
+            });
+
+            // Delete button functionality
+            $('#deleteBtn').click(function() {
+                const currentInput = $('#data');
+                currentInput.val(currentInput.val().slice(0, -1));
+            });
+
+            // Send data to Firebase
+            $('#sendBtn').click(function() {
+                const data = $('#data').val();
+                if (data) {
+                    try {
+                        dbRef.set({
+                            time: firebase.database.ServerValue.TIMESTAMP,
+                            results: data
+                        }).then(() => {
+                            alert('Data berhasil terkirim!');
+                            $('#data').val(''); // Clear input after sending
+                        }).catch((error) => {
+                            alert('Gagal mengirim data: ' + error.message);
+                        });
+                    } catch (error) {
+                        console.error('Kesalahan Firebase:', error);
+                        alert('Terjadi kesalahan saat mengirim data');
+                    }
+                }
+            });
+        });
+    </script>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-purple-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white shadow-2xl rounded-2xl p-8 w-96 text-center">
+        <h1 class="text-3xl font-bold mb-6 text-purple-700 animate-pulse">Dice Hack Cah Metro</h1>
+        
+        <div id="connectionStatus" class="mb-4 text-xl"></div>
+        
+        <div class="mb-4">
+            <input 
+                type="text" 
+                id="data" 
+                readonly 
+                class="w-full p-2 border-2 border-purple-300 rounded-lg text-center text-2xl bg-purple-50"
+                placeholder="Masukkan angka"
+            >
+        </div>
+        
+        <div class="grid grid-cols-3 gap-4 mb-4">
+            <button data-number="1" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">1</button>
+            <button data-number="2" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">2</button>
+            <button data-number="3" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">3</button>
+            <button data-number="4" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">4</button>
+            <button data-number="5" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">5</button>
+            <button data-number="6" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">6</button>
+        </div>
+        
+        <div class="flex space-x-4 mb-4">
+            <button 
+                id="deleteBtn" 
+                class="flex-1 bg-red-500 text-white p-3 rounded-lg hover:bg-red-600 transition"
+            >
+                Hapus
+            </button>
+            <button 
+                id="sendBtn" 
+                class="flex-1 bg-green-500 text-white p-3 rounded-lg hover:bg-green-600 transition"
+            >
+                Kirim
+            </button>
+        </div>
+
+        <div id="receivedData" class="text-center font-semibold"></div>
+    </div>
+</body>
+</html>
