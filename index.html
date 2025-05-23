@@ -1,285 +1,417 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dice Hack Firebase</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <style>
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-    </style>
-    <script>
-        // Konfigurasi Masa Kadaluarsa
-        const DEFAULT_EXPIRATION_DURATION = 200 * 60 * 1000; // 200 menit dalam milidetik
-
-        // Firebase configuration
-        const firebaseConfig = {
-            databaseURL: "https://baru1234-67129-default-rtdb.firebaseio.com/"
-        };
-        
-        // Global variable untuk koneksi Firebase
-        let dbRef = null;
-
-        // Fungsi untuk menampilkan toast notification
-        function showToast(message, type = 'success') {
-            const toast = document.createElement('div');
-            toast.innerHTML = message;
-            toast.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg transition-all duration-300 
-                ${type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}
-                animate-bounce`;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.classList.add('opacity-0', 'translate-x-full');
-                setTimeout(() => {
-                    document.body.removeChild(toast);
-                }, 500);
-            }, 3000);
-        }
-
-        // Fungsi untuk memeriksa status masa aktif
-        function checkAppExpiration() {
-            const expirationTime = parseInt(localStorage.getItem('appExpirationTime'));
-            const currentTime = Date.now();
-
-            const expirationBox = document.getElementById('expirationStatus');
-            const mainApp = document.querySelector('.bg-white');
-
-            if (currentTime < expirationTime) {
-                // Masa aktif normal
-                const remainingTime = expirationTime - currentTime;
-                const remainingMinutes = Math.floor(remainingTime / (60 * 1000));
-                const remainingSeconds = Math.floor((remainingTime % (60 * 1000)) / 1000);
-
-                expirationBox.innerHTML = `
-                    <span class="text-green-600 font-bold">
-                        Sisa Waktu: ${remainingMinutes} menit ${remainingSeconds} detik
-                    </span>
-                `;
-                mainApp.classList.remove('opacity-50', 'pointer-events-none');
-                return true;
-            } else {
-                // Aplikasi kadaluarsa total
-                expirationBox.innerHTML = `
-                    <span class="text-red-600 font-bold">
-                        APLIKASI KADALUARSA
-                    </span>
-                `;
-                mainApp.classList.add('opacity-50', 'pointer-events-none');
-                
-                // Nonaktifkan tombol dan input
-                document.querySelectorAll('button, input').forEach(el => {
-                    el.disabled = true;
-                });
-                
-                // Putuskan koneksi Firebase
-                if (dbRef) {
-                    dbRef.off(); // Lepaskan semua listener
-                }
-
-                // Tambahkan toast notifikasi
-                showToast('Aplikasi telah kadaluarsa', 'error');
-                document.getElementById('resetSection').style.display = 'block'; // Tampilkan bagian untuk mengatur ulang waktu
-
-                return false;
-            }
-        }
-
-        // Inisialisasi Firebase
-        function initializeFirebase() {
-            // Jika belum ada waktu kedaluwarsa, atur dengan default
-            if (!localStorage.getItem('appExpirationTime')) {
-                const expirationTime = Date.now() + DEFAULT_EXPIRATION_DURATION;
-                localStorage.setItem('appExpirationTime', expirationTime);
-            }
-            
-            // Periksa masa aktif sebelum inisialisasi
-            if (!checkAppExpiration()) {
-                showToast('Aplikasi telah kadaluarsa', 'error');
-                return null;
-            }
-
-            firebase.initializeApp(firebaseConfig);
-            return firebase.database().ref('baucua/');
-        }
-
-        // Status koneksi dan pemantauan real-time
-        function setupFirebaseConnection() {
-            const connectedRef = firebase.database().ref('.info/connected');
-            connectedRef.on('value', function(snapshot) {
-                const connected = snapshot.val();
-                updateConnectionStatus(connected);
-            });
-
-            dbRef.on('value', function(snapshot) {
-                const data = snapshot.val();
-                if (data && data.results) {
-                    console.log('Received data:', data.results);
-                    displayReceivedData(data.results);
-                }
-            });
-        }
-
-        // Perbarui tampilan status koneksi
-        function updateConnectionStatus(isConnected) {
-            const statusBox = document.getElementById('connectionStatus');
-            if (isConnected) {
-                statusBox.innerHTML = `
-                    <span class="text-green-500 font-bold">
-                        <i class="animate-pulse">🟢 Remot Terhubung</i>
-                    </span>
-                `;
-            } else {
-                statusBox.innerHTML = `
-                    <span class="text-red-500 font-bold">
-                        🔴 Terputus
-                    </span>
-                `;
-            }
-        }
-
-        // Tampilkan data yang diterima
-        function displayReceivedData(data) {
-            const receivedDataBox = document.getElementById('receivedData');
-            receivedDataBox.textContent = `Data Diterima: ${data}`;
-            receivedDataBox.classList.add('bg-green-100', 'p-2', 'rounded', 'mt-2');
-        }
-
-        // Saat dokumen siap
-        $(document).ready(function() {
-            // Jalankan pengecekan berkala setiap 1 detik
-            const expirationCheck = setInterval(checkAppExpiration, 1000);
-
-            // Inisialisasi koneksi Firebase
-            dbRef = initializeFirebase();
-            
-            if (dbRef) {
-                setupFirebaseConnection();
-            }
-
-            // Penanganan input angka
-            $('.number-btn').click(function() {
-                const number = $(this).data('number');
-                const currentInput = $('#data');
-                currentInput.val(currentInput.val() + number);
-            });
-
-            // Fungsionalitas tombol hapus
-            $('#deleteBtn').click(function() {
-                const currentInput = $('#data');
-                currentInput.val(currentInput.val().slice(0, -1));
-            });
-
-            // Kirim data ke Firebase
-            $('#sendBtn').click(function() {
-                if (!checkAppExpiration()) {
-                    showToast('Aplikasi kadaluarsa. Tidak dapat mengirim data.', 'error');
-                    return;
-                }
-
-                const data = $('#data').val();
-                if (data) {
-                    try {
-                        dbRef.set({
-                            time: firebase.database.ServerValue.TIMESTAMP,
-                            results: data
-                        }).then(() => {
-                            showToast('Data berhasil terkirim!');
-                            $('#data').val(''); // Kosongkan input setelah mengirim
-                        }).catch((error) => {
-                            showToast('Gagal mengirim data', 'error');
-                        });
-                    } catch (error) {
-                        console.error('Kesalahan Firebase:', error);
-                        showToast('Terjadi kesalahan saat mengirim data', 'error');
-                    }
-                } else {
-                    showToast('Masukkan data terlebih dahulu', 'error');
-                }
-            });
-
-            // Event untuk mengatur ulang waktu kedaluwarsa
-            $('#setDuration').click(function() {
-                const duration = parseInt($('#duration').val());
-                if (!isNaN(duration) && duration > 0) {
-                    const expirationTime = Date.now() + (duration * 60 * 1000); // Ubah menit ke milidetik
-                    localStorage.setItem('appExpirationTime', expirationTime);
-                    showToast(`Durasi aktif diatur menjadi ${duration} menit.`, 'success');
-
-                    $('#resetSection').hide(); // Sembunyikan pengaturan ulang
-                    checkAppExpiration(); // Cek ulang status masa aktif
-                } else {
-                    showToast('Masukkan durasi yang valid.', 'error');
-                }
-            });
-        });
-    </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dice Hack Cah Metro</title>
+  <!-- Tailwind CDN untuk styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js" type="module"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js" type="module"></script>
 </head>
-<body class="bg-gradient-to-br from-blue-100 to-purple-100 min-h-screen flex items-center justify-center">
-    <div class="bg-white shadow-2xl rounded-2xl p-8 w-96 text-center">
-        <h1 class="text-3xl font-bold mb-6 text-purple-700 animate-pulse">Dice Hack Cah Metro</h1>
-        
-        <div id="expirationStatus" class="mb-4 text-xl"></div>
-        
-        <div id="connectionStatus" class="mb-4 text-xl"></div>
-        
-        <div class="mb-4">
-            <input 
-                type="text" 
-                id="data" 
-                readonly 
-                class="w-full p-2 border-2 border-purple-300 rounded-lg text-center text-2xl bg-purple-50"
-                placeholder="Masukkan angka"
-            >
-        </div>
-        
-        <div class="grid grid-cols-3 gap-4 mb-4">
-            <button data-number="1" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">1</button>
-            <button data-number="2" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">2</button>
-            <button data-number="3" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">3</button>
-            <button data-number="4" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">4</button>
-            <button data-number="5" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">5</button>
-            <button data-number="6" class="number-btn bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition">6</button>
-        </div>
-        
-        <div class="flex space-x-4 mb-4">
-            <button 
-                id="deleteBtn" 
-                class="flex-1 bg-red-500 text-white p-3 rounded-lg hover:bg-red-600 transition"
-            >
-                Hapus
-            </button>
-            <button 
-                id="sendBtn" 
-                class="flex-1 bg-green-500 text-white p-3 rounded-lg hover:bg-green-600 transition"
-            >
-                Kirim
-            </button>
+<body class="bg-gradient-to-br from-indigo-50 via-white to-cyan-50 min-h-screen">
+  <div class="container mx-auto p-6">
+    <div class="max-w-md mx-auto">
+      <div class="card bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border shadow-sm p-6">
+        <div class="text-center mb-4">
+          <h1 class="text-2xl font-bold text-purple-700 flex items-center justify-center gap-2">
+            🎲 Dice Hack Cah Metro
+            <span id="lock-icon" class="hidden">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </span>
+          </h1>
+          
+          <!-- Status Koneksi -->
+          <div class="flex items-center justify-center gap-2 mt-2">
+            <div id="connection-status" class="flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600">
+                <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                <line x1="12" y1="20" x2="12" y2="20"></line>
+              </svg>
+              <span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded">
+                🟢 Remot Terhubung
+              </span>
+            </div>
+          </div>
+          
+          <div id="expired-message" class="mt-2 text-sm text-red-500 font-medium hidden flex items-center justify-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            Aplikasi tidak aktif atau kadaluarsa
+          </div>
         </div>
 
-        <!-- Bagian untuk mengatur ulang waktu kadaluarsa -->
-        <div id="resetSection" style="display: none;" class="mb-4">
-            <label for="duration" class="text-xl">Masukkan durasi aktif (menit):</label>
-            <input 
-                type="number" 
-                id="duration" 
-                class="border-2 border-purple-300 rounded-lg p-2"
-                placeholder="Contoh: 200"
-            >
-            <button id="setDuration" class="bg-blue-500 text-white p-2 rounded-lg">Tetapkan Durasi</button>
-        </div>
+        <div class="space-y-4">
+          <!-- Input Display -->
+          <input
+            id="input-display"
+            value=""
+            readonly
+            placeholder="Masukkan angka"
+            class="text-center text-2xl bg-purple-50 border-purple-300 flex h-10 w-full rounded-md border px-3 py-2 text-base"
+          />
 
-        <div id="receivedData" class="text-center font-semibold"></div>
+          <!-- Number Buttons -->
+          <div class="grid grid-cols-3 gap-3">
+            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="1">1</button>
+            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="2">2</button>
+            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="3">3</button>
+            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="4">4</button>
+            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="5">5</button>
+            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="6">6</button>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex gap-3">
+            <button
+              id="delete-btn"
+              class="flex-1 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 h-10 px-4 py-2 rounded-md text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"></path>
+                <line x1="18" y1="9" x2="12" y2="15"></line>
+                <line x1="12" y1="9" x2="18" y2="15"></line>
+              </svg>
+              Hapus
+            </button>
+            <button
+              id="send-btn"
+              class="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 h-10 px-4 py-2 rounded-md text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+              Kirim
+            </button>
+          </div>
+
+          <!-- Data yang Diterima -->
+          <div id="received-data" class="mt-4 rounded-lg border bg-white shadow-sm p-3 hidden">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-gray-600">Data Diterima:</p>
+                <p id="result-value" class="font-bold text-lg"></p>
+              </div>
+              <span id="expired-badge" class="hidden flex items-center gap-1 bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                Kadaluarsa
+              </span>
+            </div>
+            <p id="result-time" class="text-xs text-gray-500 mt-1"></p>
+          </div>
+          
+          <!-- Alert Toast -->
+          <div id="toast" class="fixed top-4 right-4 max-w-xs bg-white border rounded-md shadow-lg transition-opacity duration-300 transform scale-0 opacity-0 z-50">
+            <div class="flex p-4">
+              <div class="flex-shrink-0" id="toast-icon">
+                <!-- Icon will be injected by JS -->
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-gray-900" id="toast-title"></p>
+                <p class="text-sm text-gray-500" id="toast-message"></p>
+              </div>
+              <div class="ml-auto pl-3">
+                <button type="button" class="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none" id="close-toast">
+                  <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
+
+  <script type="module">
+    // Import Firebase modules
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+    import { getDatabase, ref, onValue, set, update, serverTimestamp, push } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
+
+    // Konfigurasi Firebase - ganti dengan konfigurasi Firebase Anda sendiri
+    const firebaseConfig = {
+      databaseURL: "https://baru1234-67129-default-rtdb.firebaseio.com/",
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // DOM Elements
+    const inputDisplay = document.getElementById('input-display');
+    const diceButtons = document.querySelectorAll('.dice-btn');
+    const deleteBtn = document.getElementById('delete-btn');
+    const sendBtn = document.getElementById('send-btn');
+    const receivedData = document.getElementById('received-data');
+    const resultValue = document.getElementById('result-value');
+    const resultTime = document.getElementById('result-time');
+    const expiredBadge = document.getElementById('expired-badge');
+    const connectionStatus = document.getElementById('connection-status');
+    const lockIcon = document.getElementById('lock-icon');
+    const expiredMessage = document.getElementById('expired-message');
+    const toast = document.getElementById('toast');
+    const toastTitle = document.getElementById('toast-title');
+    const toastMessage = document.getElementById('toast-message');
+    const toastIcon = document.getElementById('toast-icon');
+    const closeToast = document.getElementById('close-toast');
+
+    // Variables
+    let inputValue = '';
+    let currentData = null;
+    let connectionStatusValue = false;
+    
+    // Show toast function
+    function showToast(title, message, type = 'success') {
+      toastTitle.textContent = title;
+      toastMessage.textContent = message;
+      
+      // Set icon based on type
+      if (type === 'success') {
+        toastIcon.innerHTML = `
+          <svg class="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        `;
+        toast.classList.add('border-green-200');
+        toast.classList.remove('border-red-200');
+      } else {
+        toastIcon.innerHTML = `
+          <svg class="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        `;
+        toast.classList.add('border-red-200');
+        toast.classList.remove('border-green-200');
+      }
+      
+      // Show toast
+      toast.classList.remove('scale-0', 'opacity-0');
+      toast.classList.add('scale-100', 'opacity-100');
+      
+      // Auto hide after 3 seconds
+      setTimeout(() => {
+        hideToast();
+      }, 3000);
+    }
+    
+    // Hide toast function
+    function hideToast() {
+      toast.classList.remove('scale-100', 'opacity-100');
+      toast.classList.add('scale-0', 'opacity-0');
+    }
+    
+    // Close toast when clicking the close button
+    closeToast.addEventListener('click', hideToast);
+
+    // Log user action
+    function logUserAction(action, data) {
+      const logEntry = {
+        id: Date.now().toString(),
+        timestamp: Date.now(),
+        action,
+        data,
+        userId: 'user123', // Dalam implementasi nyata, ambil dari auth
+      };
+      
+      // Simpan log ke Firebase
+      try {
+        const logsRef = ref(db, 'logs/');
+        push(logsRef, {
+          ...logEntry,
+          timestamp: serverTimestamp()
+        });
+      } catch (error) {
+        console.error('Error logging to Firebase:', error);
+      }
+      
+      console.log('User action logged:', logEntry);
+    }
+
+    // Check if app is locked
+    function isAppLocked() {
+      return !currentData || currentData.isExpired;
+    }
+
+    // Update UI based on app state
+    function updateUIState() {
+      const locked = isAppLocked();
+      
+      // Update input display
+      inputDisplay.placeholder = locked ? "Aplikasi terkunci" : "Masukkan angka";
+      inputDisplay.classList.toggle('bg-gray-100', locked);
+      inputDisplay.classList.toggle('border-gray-200', locked);
+      inputDisplay.classList.toggle('text-gray-400', locked);
+      inputDisplay.classList.toggle('bg-purple-50', !locked);
+      inputDisplay.classList.toggle('border-purple-300', !locked);
+      
+      // Update dice buttons
+      diceButtons.forEach(button => {
+        button.disabled = locked;
+        button.classList.toggle('bg-gray-400', locked);
+        button.classList.toggle('hover:bg-gray-400', locked);
+        button.classList.toggle('opacity-60', locked);
+        button.classList.toggle('cursor-not-allowed', locked);
+        button.classList.toggle('bg-blue-500', !locked);
+        button.classList.toggle('hover:bg-blue-600', !locked);
+      });
+      
+      // Update action buttons
+      deleteBtn.disabled = locked;
+      sendBtn.disabled = locked;
+      deleteBtn.classList.toggle('opacity-60', locked);
+      sendBtn.classList.toggle('opacity-60', locked);
+      deleteBtn.classList.toggle('cursor-not-allowed', locked);
+      sendBtn.classList.toggle('cursor-not-allowed', locked);
+      sendBtn.classList.toggle('bg-gray-400', locked);
+      sendBtn.classList.toggle('hover:bg-gray-400', locked);
+      sendBtn.classList.toggle('bg-green-500', !locked);
+      sendBtn.classList.toggle('hover:bg-green-600', !locked);
+      
+      // Update lock icon and expired message
+      lockIcon.classList.toggle('hidden', !locked);
+      expiredMessage.classList.toggle('hidden', !locked);
+      
+      // Update connection status text
+      const statusText = connectionStatus.querySelector('span');
+      if (statusText) {
+        if (locked) {
+          statusText.textContent = '🔒 Terkunci';
+          statusText.classList.remove('bg-green-100', 'text-green-800');
+          statusText.classList.add('bg-gray-100', 'text-gray-500');
+        } else {
+          statusText.textContent = '🟢 Remot Terhubung';
+          statusText.classList.remove('bg-gray-100', 'text-gray-500');
+          statusText.classList.add('bg-green-100', 'text-green-800');
+        }
+      }
+      
+      // Update connection status icon
+      const statusIcon = connectionStatus.querySelector('svg');
+      if (statusIcon) {
+        statusIcon.classList.toggle('text-gray-400', locked);
+        statusIcon.classList.toggle('text-green-600', !locked);
+      }
+      
+      // Update received data display
+      if (currentData && currentData.results) {
+        receivedData.classList.remove('hidden');
+        resultValue.textContent = currentData.results;
+        resultTime.textContent = new Date(currentData.time).toLocaleString('id-ID');
+        
+        resultValue.classList.toggle('text-gray-400', currentData.isExpired);
+        expiredBadge.classList.toggle('hidden', !currentData.isExpired);
+      } else {
+        receivedData.classList.add('hidden');
+      }
+    }
+
+    // Monitor Firebase connection
+    const connectedRef = ref(db, '.info/connected');
+    onValue(connectedRef, (snapshot) => {
+      connectionStatusValue = !!snapshot.val();
+    });
+
+    // Monitor data changes
+    const dataRef = ref(db, 'baucua/');
+    onValue(dataRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        console.log('Received data:', data);
+        currentData = {
+          ...data,
+          isExpired: data.expirationTime ? Date.now() > data.expirationTime : false
+        };
+      } else {
+        currentData = null;
+      }
+      
+      updateUIState();
+    });
+
+    // Check expiration periodically
+    setInterval(() => {
+      if (currentData?.expirationTime) {
+        const isExpired = Date.now() > currentData.expirationTime;
+        if (isExpired !== currentData.isExpired) {
+          currentData.isExpired = isExpired;
+          updateUIState();
+        }
+      }
+    }, 1000);
+
+    // Number button click event
+    diceButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        if (isAppLocked()) {
+          showToast("Akses Terkunci", "Aplikasi saat ini tidak aktif. Harap tunggu hingga diaktifkan kembali.", "error");
+          return;
+        }
+        
+        const number = button.dataset.number;
+        inputValue += number;
+        inputDisplay.value = inputValue;
+        logUserAction('numberInput', { number: parseInt(number) });
+      });
+    });
+
+    // Delete button click event
+    deleteBtn.addEventListener('click', () => {
+      if (isAppLocked()) return;
+      
+      inputValue = inputValue.slice(0, -1);
+      inputDisplay.value = inputValue;
+      logUserAction('deleteInput');
+    });
+
+    // Send button click event
+    sendBtn.addEventListener('click', async () => {
+      if (isAppLocked()) {
+        showToast("Akses Terkunci", "Aplikasi saat ini tidak aktif. Harap tunggu hingga diaktifkan kembali.", "error");
+        return;
+      }
+      
+      if (!inputValue.trim()) {
+        showToast("Error", "Masukkan data terlebih dahulu", "error");
+        return;
+      }
+
+      try {
+        const expirationTime = Date.now() + (5 * 60 * 1000); // 5 menit default
+        await set(dataRef, {
+          time: Date.now(),
+          results: inputValue,
+          expirationTime,
+          isExpired: false,
+        });
+        
+        showToast("Berhasil", "Data berhasil terkirim ke Firebase!");
+        logUserAction('sendData', { data: inputValue });
+        inputValue = '';
+        inputDisplay.value = '';
+      } catch (error) {
+        console.error("Error sending data:", error);
+        logUserAction('sendDataError', { error: String(error), data: inputValue });
+        showToast("Error", "Gagal mengirim data ke Firebase", "error");
+      }
+    });
+
+    // Initialize UI
+    updateUIState();
+  </script>
 </body>
 </html>
