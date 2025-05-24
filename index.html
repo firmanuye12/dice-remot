@@ -1,417 +1,551 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dice Hack Cah Metro</title>
-  <!-- Tailwind CDN untuk styling -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js" type="module"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js" type="module"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dice Hack Remote - Monitored</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .container.inactive {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(1);
+        }
+        
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 12px;
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .status-active {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+        
+        .status-inactive {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            color: white;
+        }
+        
+        .status-expired {
+            background: linear-gradient(45deg, #ff9800, #f57c00);
+            color: white;
+        }
+        
+        .title {
+            color: #667eea;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .connection-status {
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        
+        .connected {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .disconnected {
+            color: #f44336;
+            font-weight: bold;
+        }
+        
+        .input-display {
+            width: 100%;
+            padding: 15px;
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            background: #f8f9ff;
+            outline: none;
+        }
+        
+        .number-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .number-btn {
+            padding: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .number-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .number-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .delete-btn {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            color: white;
+        }
+        
+        .send-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+        
+        .action-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .received-data {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .info-text {
+            color: #666;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .countdown-timer {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        
+        .animate-blink {
+            animation: blink 1s infinite;
+        }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-indigo-50 via-white to-cyan-50 min-h-screen">
-  <div class="container mx-auto p-6">
-    <div class="max-w-md mx-auto">
-      <div class="card bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border shadow-sm p-6">
-        <div class="text-center mb-4">
-          <h1 class="text-2xl font-bold text-purple-700 flex items-center justify-center gap-2">
-            🎲 Dice Hack Cah Metro
-            <span id="lock-icon" class="hidden">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-              </svg>
-            </span>
-          </h1>
-          
-          <!-- Status Koneksi -->
-          <div class="flex items-center justify-center gap-2 mt-2">
-            <div id="connection-status" class="flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600">
-                <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
-                <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
-                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-                <line x1="12" y1="20" x2="12" y2="20"></line>
-              </svg>
-              <span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded">
-                🟢 Remot Terhubung
-              </span>
-            </div>
-          </div>
-          
-          <div id="expired-message" class="mt-2 text-sm text-red-500 font-medium hidden flex items-center justify-center gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
-              <line x1="12" y1="9" x2="12" y2="13"></line>
-              <line x1="12" y1="17" x2="12.01" y2="17"></line>
-            </svg>
-            Aplikasi tidak aktif atau kadaluarsa
-          </div>
-        </div>
-
-        <div class="space-y-4">
-          <!-- Input Display -->
-          <input
-            id="input-display"
-            value=""
-            readonly
-            placeholder="Masukkan angka"
-            class="text-center text-2xl bg-purple-50 border-purple-300 flex h-10 w-full rounded-md border px-3 py-2 text-base"
-          />
-
-          <!-- Number Buttons -->
-          <div class="grid grid-cols-3 gap-3">
-            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="1">1</button>
-            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="2">2</button>
-            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="3">3</button>
-            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="4">4</button>
-            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="5">5</button>
-            <button class="dice-btn h-12 text-lg bg-blue-500 hover:bg-blue-600 rounded-md text-white" data-number="6">6</button>
-          </div>
-
-          <!-- Action Buttons -->
-          <div class="flex gap-3">
-            <button
-              id="delete-btn"
-              class="flex-1 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 h-10 px-4 py-2 rounded-md text-white"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"></path>
-                <line x1="18" y1="9" x2="12" y2="15"></line>
-                <line x1="12" y1="9" x2="18" y2="15"></line>
-              </svg>
-              Hapus
-            </button>
-            <button
-              id="send-btn"
-              class="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 h-10 px-4 py-2 rounded-md text-white"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
-              Kirim
-            </button>
-          </div>
-
-          <!-- Data yang Diterima -->
-          <div id="received-data" class="mt-4 rounded-lg border bg-white shadow-sm p-3 hidden">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-sm text-gray-600">Data Diterima:</p>
-                <p id="result-value" class="font-bold text-lg"></p>
-              </div>
-              <span id="expired-badge" class="hidden flex items-center gap-1 bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
-                  <line x1="12" y1="9" x2="12" y2="13"></line>
-                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                </svg>
-                Kadaluarsa
-              </span>
-            </div>
-            <p id="result-time" class="text-xs text-gray-500 mt-1"></p>
-          </div>
-          
-          <!-- Alert Toast -->
-          <div id="toast" class="fixed top-4 right-4 max-w-xs bg-white border rounded-md shadow-lg transition-opacity duration-300 transform scale-0 opacity-0 z-50">
-            <div class="flex p-4">
-              <div class="flex-shrink-0" id="toast-icon">
-                <!-- Icon will be injected by JS -->
-              </div>
-              <div class="ml-3">
-                <p class="text-sm font-medium text-gray-900" id="toast-title"></p>
-                <p class="text-sm text-gray-500" id="toast-message"></p>
-              </div>
-              <div class="ml-auto pl-3">
-                <button type="button" class="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none" id="close-toast">
-                  <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+<body>
+    <div id="statusIndicator" class="status-indicator status-inactive">
+        🔴 APLIKASI TIDAK AKTIF
     </div>
-  </div>
-
-  <script type="module">
-    // Import Firebase modules
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
-    import { getDatabase, ref, onValue, set, update, serverTimestamp, push } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
-
-    // Konfigurasi Firebase - ganti dengan konfigurasi Firebase Anda sendiri
-    const firebaseConfig = {
-      databaseURL: "https://remot-dadu-ca3d6-default-rtdb.firebaseio.com/",
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    // DOM Elements
-    const inputDisplay = document.getElementById('input-display');
-    const diceButtons = document.querySelectorAll('.dice-btn');
-    const deleteBtn = document.getElementById('delete-btn');
-    const sendBtn = document.getElementById('send-btn');
-    const receivedData = document.getElementById('received-data');
-    const resultValue = document.getElementById('result-value');
-    const resultTime = document.getElementById('result-time');
-    const expiredBadge = document.getElementById('expired-badge');
-    const connectionStatus = document.getElementById('connection-status');
-    const lockIcon = document.getElementById('lock-icon');
-    const expiredMessage = document.getElementById('expired-message');
-    const toast = document.getElementById('toast');
-    const toastTitle = document.getElementById('toast-title');
-    const toastMessage = document.getElementById('toast-message');
-    const toastIcon = document.getElementById('toast-icon');
-    const closeToast = document.getElementById('close-toast');
-
-    // Variables
-    let inputValue = '';
-    let currentData = null;
-    let connectionStatusValue = false;
     
-    // Show toast function
-    function showToast(title, message, type = 'success') {
-      toastTitle.textContent = title;
-      toastMessage.textContent = message;
-      
-      // Set icon based on type
-      if (type === 'success') {
-        toastIcon.innerHTML = `
-          <svg class="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-          </svg>
-        `;
-        toast.classList.add('border-green-200');
-        toast.classList.remove('border-red-200');
-      } else {
-        toastIcon.innerHTML = `
-          <svg class="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        `;
-        toast.classList.add('border-red-200');
-        toast.classList.remove('border-green-200');
-      }
-      
-      // Show toast
-      toast.classList.remove('scale-0', 'opacity-0');
-      toast.classList.add('scale-100', 'opacity-100');
-      
-      // Auto hide after 3 seconds
-      setTimeout(() => {
-        hideToast();
-      }, 3000);
-    }
-    
-    // Hide toast function
-    function hideToast() {
-      toast.classList.remove('scale-100', 'opacity-100');
-      toast.classList.add('scale-0', 'opacity-0');
-    }
-    
-    // Close toast when clicking the close button
-    closeToast.addEventListener('click', hideToast);
-
-    // Log user action
-    function logUserAction(action, data) {
-      const logEntry = {
-        id: Date.now().toString(),
-        timestamp: Date.now(),
-        action,
-        data,
-        userId: 'user123', // Dalam implementasi nyata, ambil dari auth
-      };
-      
-      // Simpan log ke Firebase
-      try {
-        const logsRef = ref(db, 'logs/');
-        push(logsRef, {
-          ...logEntry,
-          timestamp: serverTimestamp()
-        });
-      } catch (error) {
-        console.error('Error logging to Firebase:', error);
-      }
-      
-      console.log('User action logged:', logEntry);
-    }
-
-    // Check if app is locked
-    function isAppLocked() {
-      return !currentData || currentData.isExpired;
-    }
-
-    // Update UI based on app state
-    function updateUIState() {
-      const locked = isAppLocked();
-      
-      // Update input display
-      inputDisplay.placeholder = locked ? "Aplikasi terkunci" : "Masukkan angka";
-      inputDisplay.classList.toggle('bg-gray-100', locked);
-      inputDisplay.classList.toggle('border-gray-200', locked);
-      inputDisplay.classList.toggle('text-gray-400', locked);
-      inputDisplay.classList.toggle('bg-purple-50', !locked);
-      inputDisplay.classList.toggle('border-purple-300', !locked);
-      
-      // Update dice buttons
-      diceButtons.forEach(button => {
-        button.disabled = locked;
-        button.classList.toggle('bg-gray-400', locked);
-        button.classList.toggle('hover:bg-gray-400', locked);
-        button.classList.toggle('opacity-60', locked);
-        button.classList.toggle('cursor-not-allowed', locked);
-        button.classList.toggle('bg-blue-500', !locked);
-        button.classList.toggle('hover:bg-blue-600', !locked);
-      });
-      
-      // Update action buttons
-      deleteBtn.disabled = locked;
-      sendBtn.disabled = locked;
-      deleteBtn.classList.toggle('opacity-60', locked);
-      sendBtn.classList.toggle('opacity-60', locked);
-      deleteBtn.classList.toggle('cursor-not-allowed', locked);
-      sendBtn.classList.toggle('cursor-not-allowed', locked);
-      sendBtn.classList.toggle('bg-gray-400', locked);
-      sendBtn.classList.toggle('hover:bg-gray-400', locked);
-      sendBtn.classList.toggle('bg-green-500', !locked);
-      sendBtn.classList.toggle('hover:bg-green-600', !locked);
-      
-      // Update lock icon and expired message
-      lockIcon.classList.toggle('hidden', !locked);
-      expiredMessage.classList.toggle('hidden', !locked);
-      
-      // Update connection status text
-      const statusText = connectionStatus.querySelector('span');
-      if (statusText) {
-        if (locked) {
-          statusText.textContent = '🔒 Terkunci';
-          statusText.classList.remove('bg-green-100', 'text-green-800');
-          statusText.classList.add('bg-gray-100', 'text-gray-500');
-        } else {
-          statusText.textContent = '🟢 Remot Terhubung';
-          statusText.classList.remove('bg-gray-100', 'text-gray-500');
-          statusText.classList.add('bg-green-100', 'text-green-800');
-        }
-      }
-      
-      // Update connection status icon
-      const statusIcon = connectionStatus.querySelector('svg');
-      if (statusIcon) {
-        statusIcon.classList.toggle('text-gray-400', locked);
-        statusIcon.classList.toggle('text-green-600', !locked);
-      }
-      
-      // Update received data display
-      if (currentData && currentData.results) {
-        receivedData.classList.remove('hidden');
-        resultValue.textContent = currentData.results;
-        resultTime.textContent = new Date(currentData.time).toLocaleString('id-ID');
+    <div id="container" class="container inactive">
+        <h1 class="title">Dice Hack Cah Metro</h1>
+        <p class="subtitle">Versi Monitored - Target: baru1234-67129</p>
         
-        resultValue.classList.toggle('text-gray-400', currentData.isExpired);
-        expiredBadge.classList.toggle('hidden', !currentData.isExpired);
-      } else {
-        receivedData.classList.add('hidden');
-      }
-    }
+        <div id="countdownTimer" class="countdown-timer" style="display: none;">
+            ⏰ Waktu Tersisa: <span id="timeRemaining">--:--:--</span>
+        </div>
+        
+        <div id="connectionStatus" class="connection-status">
+            <span class="disconnected">🔴 Terputus</span>
+        </div>
+        
+        <input type="text" id="inputDisplay" class="input-display" placeholder="Masukkan angka" readonly>
+        
+        <div class="number-grid">
+            <button class="number-btn" onclick="addNumber('1')">1</button>
+            <button class="number-btn" onclick="addNumber('2')">2</button>
+            <button class="number-btn" onclick="addNumber('3')">3</button>
+            <button class="number-btn" onclick="addNumber('4')">4</button>
+            <button class="number-btn" onclick="addNumber('5')">5</button>
+            <button class="number-btn" onclick="addNumber('6')">6</button>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="action-btn delete-btn" onclick="deleteNumber()">Hapus</button>
+            <button class="action-btn send-btn" onclick="sendData()">Kirim</button>
+        </div>
+        
+        <div id="receivedData" class="received-data" style="display: none;">
+            Data Diterima: <span id="dataValue"></span>
+        </div>
+        
+        <div class="info-text">
+            <p>Aplikasi ini dimonitor secara real-time</p>
+            <p>Data dikirim ke: baru1234-67129-default-rtdb</p>
+            <p>Pastikan masa aktif belum habis untuk menggunakan fitur</p>
+        </div>
+    </div>
 
-    // Monitor Firebase connection
-    const connectedRef = ref(db, '.info/connected');
-    onValue(connectedRef, (snapshot) => {
-      connectionStatusValue = !!snapshot.val();
-    });
-
-    // Monitor data changes
-    const dataRef = ref(db, 'baucua/');
-    onValue(dataRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        console.log('Received data:', data);
-        currentData = {
-          ...data,
-          isExpired: data.expirationTime ? Date.now() > data.expirationTime : false
+    <script>
+        // Firebase Configuration
+        const monitoringConfig = {
+            apiKey: "AIzaSyDCYjIYcBNk-418QdBRFCquFSTIfmVpJ4M",
+            authDomain: "remot-dadu-ca3d6.firebaseapp.com",
+            databaseURL: "https://remot-dadu-ca3d6-default-rtdb.firebaseio.com",
+            projectId: "remot-dadu-ca3d6",
+            storageBucket: "remot-dadu-ca3d6.firebasestorage.app",
+            messagingSenderId: "449910097968",
+            appId: "1:449910097968:web:3cd3cd8f8aa8f0633b45f5"
         };
-      } else {
-        currentData = null;
-      }
-      
-      updateUIState();
-    });
 
-    // Check expiration periodically
-    setInterval(() => {
-      if (currentData?.expirationTime) {
-        const isExpired = Date.now() > currentData.expirationTime;
-        if (isExpired !== currentData.isExpired) {
-          currentData.isExpired = isExpired;
-          updateUIState();
-        }
-      }
-    }, 1000);
+        const dataConfig = {
+            databaseURL: "https://baru1234-67129-default-rtdb.firebaseio.com"
+        };
 
-    // Number button click event
-    diceButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        if (isAppLocked()) {
-          showToast("Akses Terkunci", "Aplikasi saat ini tidak aktif. Harap tunggu hingga diaktifkan kembali.", "error");
-          return;
-        }
+        // Initialize Firebase apps
+        const monitoringApp = firebase.initializeApp(monitoringConfig, 'monitoring');
+        const dataApp = firebase.initializeApp(dataConfig, 'data');
+
+        // Database references
+        const monitoringDb = firebase.database(monitoringApp);
+        const dataDb = firebase.database(dataApp);
         
-        const number = button.dataset.number;
-        inputValue += number;
-        inputDisplay.value = inputValue;
-        logUserAction('numberInput', { number: parseInt(number) });
-      });
-    });
+        const appControlRef = monitoringDb.ref('app-control');
+        const activityRef = monitoringDb.ref('activity-history');
+        const baucuaRef = dataDb.ref('baucua');
+        const connectedRef = dataDb.ref('.info/connected');
 
-    // Delete button click event
-    deleteBtn.addEventListener('click', () => {
-      if (isAppLocked()) return;
-      
-      inputValue = inputValue.slice(0, -1);
-      inputDisplay.value = inputValue;
-      logUserAction('deleteInput');
-    });
+        // State variables
+        let inputValue = '';
+        let isConnected = false;
+        let appStatus = null;
+        let isAppActive = false;
+        let countdownInterval = null;
 
-    // Send button click event
-    sendBtn.addEventListener('click', async () => {
-      if (isAppLocked()) {
-        showToast("Akses Terkunci", "Aplikasi saat ini tidak aktif. Harap tunggu hingga diaktifkan kembali.", "error");
-        return;
-      }
-      
-      if (!inputValue.trim()) {
-        showToast("Error", "Masukkan data terlebih dahulu", "error");
-        return;
-      }
+        // DOM elements
+        const container = document.getElementById('container');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const inputDisplay = document.getElementById('inputDisplay');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const receivedData = document.getElementById('receivedData');
+        const dataValue = document.getElementById('dataValue');
+        const countdownTimer = document.getElementById('countdownTimer');
+        const timeRemaining = document.getElementById('timeRemaining');
 
-      try {
-        const expirationTime = Date.now() + (5 * 60 * 1000); // 5 menit default
-        await set(dataRef, {
-          time: Date.now(),
-          results: inputValue,
-          expirationTime,
-          isExpired: false,
+        // Utility functions
+        function logActivity(activity, details = {}) {
+            activityRef.push({
+                activity,
+                details,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                date: new Date().toISOString(),
+                source: 'remote-html'
+            });
+        }
+
+        function showToast(message, type = 'info') {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            // Simple alert for now - could be enhanced with custom toast
+            if (type === 'error') {
+                alert(`Error: ${message}`);
+            }
+        }
+
+        function updateUI() {
+            const buttons = document.querySelectorAll('.number-btn, .action-btn');
+            buttons.forEach(btn => {
+                btn.disabled = !isAppActive;
+            });
+            
+            if (isAppActive) {
+                container.classList.remove('inactive');
+            } else {
+                container.classList.add('inactive');
+            }
+        }
+
+        function updateStatusIndicator() {
+            if (!appStatus || !appStatus.isActive) {
+                statusIndicator.textContent = '🔴 APLIKASI TIDAK AKTIF';
+                statusIndicator.className = 'status-indicator status-inactive';
+                countdownTimer.style.display = 'none';
+                return;
+            }
+
+            if (appStatus.expiryTime && Date.now() > appStatus.expiryTime) {
+                statusIndicator.textContent = '⏰ APLIKASI KADALUARSA';
+                statusIndicator.className = 'status-indicator status-expired';
+                countdownTimer.style.display = 'none';
+                return;
+            }
+
+            // Active status with countdown
+            const expiryTime = new Date(appStatus.expiryTime);
+            const remaining = expiryTime.getTime() - Date.now();
+            const hours = Math.floor(remaining / (1000 * 60 * 60));
+            const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+
+            statusIndicator.textContent = `🟢 AKTIF (${hours}j ${minutes}m)`;
+            statusIndicator.className = 'status-indicator status-active';
+            countdownTimer.style.display = 'block';
+        }
+
+        function startCountdown() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+
+            countdownInterval = setInterval(() => {
+                if (!appStatus || !appStatus.isActive || !appStatus.expiryTime) {
+                    clearInterval(countdownInterval);
+                    return;
+                }
+
+                const now = Date.now();
+                const expiry = appStatus.expiryTime;
+                const remaining = expiry - now;
+
+                if (remaining <= 0) {
+                    // Time expired - automatically disconnect
+                    clearInterval(countdownInterval);
+                    timeRemaining.textContent = 'KADALUARSA';
+                    timeRemaining.classList.add('animate-blink');
+                    
+                    // Update app status to inactive
+                    isAppActive = false;
+                    updateUI();
+                    updateStatusIndicator();
+                    
+                    logActivity('Aplikasi Kadaluarsa Otomatis', {
+                        expiredAt: new Date().toLocaleString('id-ID')
+                    });
+                    
+                    showToast('Masa aktif aplikasi telah habis!', 'error');
+                    return;
+                }
+
+                const hours = Math.floor(remaining / (1000 * 60 * 60));
+                const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+
+                timeRemaining.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                timeRemaining.classList.remove('animate-blink');
+                
+                updateStatusIndicator();
+            }, 1000);
+        }
+
+        function updateAppStatus(status) {
+            console.log('App control status received:', status);
+            appStatus = status;
+            
+            if (!status || !status.isActive) {
+                isAppActive = false;
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                }
+            } else if (status.expiryTime && Date.now() > status.expiryTime) {
+                isAppActive = false;
+                if (appStatus && appStatus.isActive) {
+                    logActivity('Aplikasi Kadaluarsa Otomatis', {
+                        expiredAt: new Date().toLocaleString('id-ID')
+                    });
+                }
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                }
+            } else {
+                isAppActive = true;
+                startCountdown();
+            }
+            
+            updateUI();
+            updateStatusIndicator();
+        }
+
+        function updateConnectionStatus() {
+            if (isConnected) {
+                connectionStatus.innerHTML = '<span class="connected animate-pulse">🟢 Remot Terhubung</span><div style="font-size: 12px; color: #666; margin-top: 5px;">Target: baru1234-67129</div>';
+            } else {
+                connectionStatus.innerHTML = '<span class="disconnected">🔴 Terputus</span>';
+            }
+        }
+
+        function canUseApp() {
+            if (!isAppActive) {
+                showToast('Aplikasi sedang tidak aktif atau kadaluarsa!', 'error');
+                return false;
+            }
+            return true;
+        }
+
+        // Main functions
+        function addNumber(number) {
+            if (!canUseApp()) return;
+            inputValue += number;
+            inputDisplay.value = inputValue;
+        }
+
+        function deleteNumber() {
+            if (!canUseApp()) return;
+            inputValue = inputValue.slice(0, -1);
+            inputDisplay.value = inputValue;
+        }
+
+        async function sendData() {
+            if (!canUseApp()) return;
+            
+            if (inputValue) {
+                try {
+                    await baucuaRef.set({
+                        time: firebase.database.ServerValue.TIMESTAMP,
+                        results: inputValue
+                    });
+                    
+                    showToast('Data berhasil terkirim ke baru1234-67129!');
+                    inputValue = '';
+                    inputDisplay.value = '';
+                    
+                    logActivity('Data Dikirim ke Server', {
+                        data: inputValue,
+                        timestamp: new Date().toLocaleString('id-ID'),
+                        targetDatabase: 'baru1234-67129'
+                    });
+                } catch (error) {
+                    showToast('Gagal mengirim data', 'error');
+                    console.error('Error sending data:', error);
+                }
+            } else {
+                showToast('Masukkan data terlebih dahulu', 'error');
+            }
+        }
+
+        // Firebase listeners
+        appControlRef.on('value', (snapshot) => {
+            const status = snapshot.val();
+            updateAppStatus(status);
         });
-        
-        showToast("Berhasil", "Data berhasil terkirim ke Firebase!");
-        logUserAction('sendData', { data: inputValue });
-        inputValue = '';
-        inputDisplay.value = '';
-      } catch (error) {
-        console.error("Error sending data:", error);
-        logUserAction('sendDataError', { error: String(error), data: inputValue });
-        showToast("Error", "Gagal mengirim data ke Firebase", "error");
-      }
-    });
 
-    // Initialize UI
-    updateUIState();
-  </script>
+        connectedRef.on('value', (snapshot) => {
+            isConnected = snapshot.val();
+            updateConnectionStatus();
+        });
+
+        baucuaRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.results) {
+                console.log('Received data:', data.results);
+                dataValue.textContent = data.results;
+                receivedData.style.display = 'block';
+                
+                logActivity('Data Diterima dari Remote', {
+                    data: data.results,
+                    timestamp: new Date().toLocaleString('id-ID')
+                });
+            }
+        });
+
+        // Initialize app
+        window.addEventListener('load', () => {
+            logActivity('Aplikasi Remote HTML Dimuat', {
+                userAgent: navigator.userAgent,
+                timestamp: new Date().toLocaleString('id-ID'),
+                targetDatabase: 'baru1234-67129'
+            });
+        });
+
+        window.addEventListener('beforeunload', () => {
+            logActivity('Aplikasi Remote HTML Ditutup', {
+                timestamp: new Date().toLocaleString('id-ID')
+            });
+        });
+
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (!canUseApp()) return;
+            
+            if (e.key >= '1' && e.key <= '6') {
+                addNumber(e.key);
+            } else if (e.key === 'Backspace') {
+                deleteNumber();
+            } else if (e.key === 'Enter') {
+                sendData();
+            }
+        });
+    </script>
 </body>
 </html>
