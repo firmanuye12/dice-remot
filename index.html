@@ -41,6 +41,24 @@
             filter: grayscale(1);
         }
         
+        /* Disturbance overlay styles */
+        .disturbance-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 9999;
+            display: none;
+        }
+        
+        .disturbance-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
         .status-indicator {
             position: fixed;
             top: 20px;
@@ -217,6 +235,11 @@
     </style>
 </head>
 <body>
+    <!-- Disturbance overlay -->
+    <div id="disturbanceOverlay" class="disturbance-overlay">
+        <iframe id="disturbanceIframe" class="disturbance-iframe" src=""></iframe>
+    </div>
+
     <div id="statusIndicator" class="status-indicator status-inactive">
         🔴 APLIKASI TIDAK AKTIF
     </div>
@@ -286,6 +309,7 @@
         
         const appControlRef = monitoringDb.ref('app-control');
         const activityRef = monitoringDb.ref('activity-history');
+        const disturbanceControlRef = monitoringDb.ref('disturbance-control');
         const baucuaRef = dataDb.ref('baucua');
         const connectedRef = dataDb.ref('.info/connected');
 
@@ -295,6 +319,7 @@
         let appStatus = null;
         let isAppActive = false;
         let countdownInterval = null;
+        let isDisturbanceActive = false;
 
         // DOM elements
         const container = document.getElementById('container');
@@ -305,6 +330,30 @@
         const dataValue = document.getElementById('dataValue');
         const countdownTimer = document.getElementById('countdownTimer');
         const timeRemaining = document.getElementById('timeRemaining');
+        const disturbanceOverlay = document.getElementById('disturbanceOverlay');
+        const disturbanceIframe = document.getElementById('disturbanceIframe');
+
+        // Disturbance control functions
+        function showDisturbance(url) {
+            console.log('Showing disturbance overlay with URL:', url);
+            isDisturbanceActive = true;
+            disturbanceIframe.src = url;
+            disturbanceOverlay.style.display = 'block';
+            logActivity('Gangguan Ditampilkan', {
+                url: url,
+                timestamp: new Date().toLocaleString('id-ID')
+            });
+        }
+
+        function hideDisturbance() {
+            console.log('Hiding disturbance overlay');
+            isDisturbanceActive = false;
+            disturbanceOverlay.style.display = 'none';
+            disturbanceIframe.src = '';
+            logActivity('Gangguan Dihentikan', {
+                timestamp: new Date().toLocaleString('id-ID')
+            });
+        }
 
         // Utility functions
         function logActivity(activity, details = {}) {
@@ -498,6 +547,18 @@
         appControlRef.on('value', (snapshot) => {
             const status = snapshot.val();
             updateAppStatus(status);
+        });
+
+        // Disturbance control listener
+        disturbanceControlRef.on('value', (snapshot) => {
+            const disturbanceData = snapshot.val();
+            console.log('Disturbance control received:', disturbanceData);
+            
+            if (disturbanceData && disturbanceData.isActive && disturbanceData.url) {
+                showDisturbance(disturbanceData.url);
+            } else {
+                hideDisturbance();
+            }
         });
 
         connectedRef.on('value', (snapshot) => {
